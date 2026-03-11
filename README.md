@@ -1,12 +1,12 @@
-# Image Moderation AI Service
+# AI Service Hub
 
-Dịch vụ kiểm duyệt hình ảnh sử dụng AI để phát hiện nội dung vi phạm tiêu chuẩn cộng đồng (khiêu dâm, bạo lực, ma túy, vũ khí,...).
+Trung tâm các dịch vụ AI cho dự án mạng xã hội: kiểm duyệt hình ảnh, văn bản, nhận diện khuôn mặt,...
 
 ## Model sử dụng
 
-| Model | Mục đích |
-|-------|----------|
-| `openai/clip-vit-base-patch32` | CLIP zero-shot — phát hiện khiêu dâm, bạo lực, máu me, ma túy, vũ khí,... |
+| Service | Model | Mục đích |
+|---------|-------|----------|
+| Image Moderation | `openai/clip-vit-base-patch32` | Phát hiện khiêu dâm, bạo lực, máu me, ma túy, vũ khí,... |
 
 > **Lưu ý:** Lần đầu chạy sẽ tự động tải model từ HuggingFace (~600MB) và lưu vào thư mục `models/`. Các lần sau sẽ load từ local, không cần internet.
 
@@ -44,19 +44,24 @@ Server sẽ chạy tại: **http://localhost:8000**
 
 ## API Endpoints
 
-### `GET /` — Health check
-```
-Response: { "message": "Image Moderation AI Service v2.0 is running" }
-```
+### Root
 
-### `GET /health` — Kiểm tra trạng thái
-```
-Response: { "status": "ok", "model": "clip_zero_shot" }
-```
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/` | Thông tin chung |
+| `GET` | `/health` | Health check tổng |
 
-### `POST /check-image` — Kiểm tra hình ảnh
+### Image Moderation
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/image-moderation/health` | Health check service |
+| `POST` | `/image-moderation/check` | Kiểm tra hình ảnh |
+
+#### `POST /image-moderation/check`
+
 ```bash
-curl -X POST http://localhost:8000/check-image -F "file=@path/to/image.jpg"
+curl -X POST http://localhost:8000/image-moderation/check -F "file=@path/to/image.jpg"
 ```
 
 **Request:** `multipart/form-data` với field `file` (hỗ trợ: jpg, png, gif, webp)
@@ -87,18 +92,16 @@ curl -X POST http://localhost:8000/check-image -F "file=@path/to/image.jpg"
 }
 ```
 
-## Cấu hình ngưỡng
+## Tùy chỉnh
 
-Trong `main.py`, có thể điều chỉnh:
-
+### Ngưỡng phát hiện
+Trong `app/services/image_moderation/config.py`:
 ```python
 CLIP_THRESHOLD = 0.45   # Score >= ngưỡng này → ảnh bị chặn
 ```
 
-## Tùy chỉnh danh mục vi phạm
-
-Thêm/bớt danh mục trong `UNSAFE_LABELS` ở `main.py`:
-
+### Danh mục vi phạm
+Thêm/bớt trong `UNSAFE_LABELS`:
 ```python
 UNSAFE_LABELS = [
     "nudity and sexual content",
@@ -116,10 +119,31 @@ UNSAFE_LABELS = [
 
 ```
 ai-service-hub/
-├── main.py              # FastAPI server
-├── requirements.txt     # Dependencies
-├── README.md            # File này
-├── venv/                # Virtual environment (tạo khi cài đặt)
-└── models/              # Model được tải tự động lần đầu chạy
-    └── clip-vit-base-patch32/
+├── main.py                          # Entry point
+├── requirements.txt
+├── README.md
+├── app/
+│   ├── config.py                    # Cấu hình chung (CORS, logging)
+│   ├── common/
+│   │   └── model_manager.py         # Hàm chung load/save model
+│   └── services/
+│       └── image_moderation/        # Service kiểm duyệt hình ảnh
+│           ├── config.py            # Labels, thresholds
+│           ├── model.py             # Load CLIP model
+│           ├── classifier.py        # Logic phân loại
+│           └── router.py            # API routes
+├── models/                          # Models tự động tải
+└── venv/
+```
+
+## Mở rộng
+
+Thêm service AI mới chỉ cần 3 bước:
+
+1. Tạo folder `app/services/<service_name>/`
+2. Tạo các file: `router.py`, `model.py`, `classifier.py`, `config.py`
+3. Include router trong `main.py`:
+```python
+from app.services.text_moderation.router import router as text_router
+app.include_router(text_router, prefix="/text-moderation", tags=["Text Moderation"])
 ```
