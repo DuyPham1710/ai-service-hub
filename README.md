@@ -7,36 +7,44 @@ Trung tâm các dịch vụ AI cho dự án mạng xã hội: kiểm duyệt hì
 | Service | Model | Mục đích |
 |---------|-------|----------|
 | Image Moderation | `openai/clip-vit-base-patch32` | Phát hiện khiêu dâm, bạo lực, máu me, ma túy, vũ khí,... |
+| Video Moderation | Khung hình tách từ OpenCV + `CLIP` | Phát hiệm vi phạm theo dòng thời gian, làm mờ bằng FFmpeg |
 
-> **Lưu ý:** Lần đầu chạy sẽ tự động tải model từ HuggingFace (~600MB) và lưu vào thư mục `models/`. Các lần sau sẽ load từ local, không cần internet.
+> **Lưu ý:** Lần đầu chạy sẽ tự động tải model từ HuggingFace (~600MB) và lưu vào Docker volume hoặc thư mục `models/`. Các lần sau sẽ load từ local, không cần internet.
 
-## Yêu cầu
+## Cài đặt và Chạy Server
 
-- Python >= 3.10
+Dự án hiện đã hỗ trợ chạy toàn bộ trong Docker (khuyên dùng) để đồng bộ môi trường (đặc biệt là cài đặt sẵn FFmpeg, OpenCV).
 
-## Cài đặt
+### Cách 1: Sử dụng Docker (Khuyên dùng)
+
+Yêu cầu đã cài đặt Docker Desktop hoặc Docker Compose.
 
 ```bash
-# 1. Tạo virtual environment
-python -m venv venv
+# Build và chạy ngầm server port 8000
+docker-compose up -d --build
 
-# 2. Kích hoạt venv
-# Windows:
-.\venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# 3. Cài đặt dependencies
-pip install -r requirements.txt
+# Tắt server
+docker-compose down
 ```
 
-## Chạy service
+Lưu ý:
+- Chạy qua Docker có hỗ trợ Hot-Reload (sửa code `.py` thì server lưu file tự nhận).
+- Folder `models` được map thẳng ra ngoài để tránh phải download nhiều lần.
+
+### Cách 2: Chạy Local trực tiếp không dùng Docker
+
+Yêu cầu: Python >= 3.10 và đã cài đặt FFmpeg trên máy tính (nếu dùng tính năng video).
 
 ```bash
-# Kích hoạt venv (nếu chưa)
-.\venv\Scripts\activate
+# 1. Tạo và kích hoạt virtual environment
+python -m venv venv
+.\venv\Scripts\activate      # Windows
+# source venv/bin/activate   # Linux/Mac
 
-# Chạy server
+# 2. Cài đặt dependencies
+pip install -r requirements.txt
+
+# 3. Chạy server
 python main.py
 ```
 
@@ -89,6 +97,49 @@ curl -X POST http://localhost:8000/image-moderation/check -F "file=@path/to/imag
     "child abuse": 0.001
   },
   "threshold": 0.45
+}
+```
+
+### Video Moderation
+
+| Method | Endpoint | Mô tả |
+|--------|----------|-------|
+| `GET` | `/video-moderation/health` | Health check service |
+| `POST` | `/video-moderation/check` | Kiểm tra và che mờ (blur) video |
+
+#### `POST /video-moderation/check`
+
+```bash
+curl -X POST http://localhost:8000/video-moderation/check -F "file=@path/to/video.mp4"
+```
+
+**Response an toàn (200 JSON):** 
+```json
+{
+  "is_safe": true,
+  "duration": 5.4,
+  "total_frames_analyzed": 11,
+  "violation_segments": [],
+  "has_blurred_video": false
+}
+```
+
+**Response vi phạm một phần (Video/MP4 file download):**
+Hệ thống sẽ trả về trực tiếp một file mp4 đã che mờ, đi kèm custom headers sau:
+- `X-Is-Safe`: "false"
+- `X-Duration`: "10.0"
+- `X-Violation-Count`: "2"
+
+**Response vi phạm nghiêm trọng > 90% (200 JSON - Block Completely):**
+```json
+{
+  "is_safe": false,
+  "duration": 15.0,
+  "total_frames_analyzed": 30,
+  "violation_segments": [ ... ],
+  "has_blurred_video": false,
+  "block_completely": true,
+  "violation_ratio": 0.95
 }
 ```
 
