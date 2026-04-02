@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  ai-service-hub:
+    build: .
+    container_name: ai-service-hub
+    ports:
+      - "8000:8000"
+    volumes:
+      # Ánh xạ toàn bộ thư mục code hiện tại vào /app để tính năng Auto-Reload hoạt động
+      - .:/app
+      # Ánh xạ thư mục models ra ngoài để Docker không phải tải lại model AI mỗi khi khởi động lại
+      - ./models:/app/models
+    restart: unless-stopped

@@ -1,5 +1,5 @@
 # Ngưỡng tin cậy — nếu score của label vi phạm >= ngưỡng này -> ảnh bị chặn
-CLIP_THRESHOLD = 0.45
+CLIP_THRESHOLD = 0.5
 
 # Các danh mục vi phạm — có thể tùy chỉnh thêm/bớt
 UNSAFE_LABELS = [
