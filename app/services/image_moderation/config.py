@@ -9,7 +9,7 @@ UNSAFE_LABELS = [
     "blood and gore",
     "drugs and drug use",
     "weapons and guns",
-    "self-harm and suicide",
+   # "self-harm and suicide",
     "child abuse",
 ]
 
@@ -27,7 +27,7 @@ LABEL_VI = {
     "blood and gore": "máu me, kinh dị",
     "drugs and drug use": "ma túy, chất cấm",
     "weapons and guns": "vũ khí",
-    "self-harm and suicide": "tự gây thương tích",
+   # "self-harm and suicide": "tự gây thương tích",
     "child abuse": "bạo hành trẻ em",
 }
 

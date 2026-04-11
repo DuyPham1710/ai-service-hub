@@ -1,9 +1,5 @@
-venv/
+models/
 __pycache__/
 *.pyc
-*.pyo
-.git/
-.gitignore
+venv/
 .env
-.vscode/
-temp_videos/

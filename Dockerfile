@@ -2,11 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Khắc phục lỗi build có thể xảy ra trong một số môi trường (Option)
+# Cài đặt system dependencies (bao gồm ffmpeg cho audio processing, libsndfile cho soundfile)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ffmpeg \
     libgl1 \
+    libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài đặt thư viện trước để tận dụng Docker Cache

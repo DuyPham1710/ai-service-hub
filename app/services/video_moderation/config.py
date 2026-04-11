@@ -15,7 +15,7 @@ MIN_CONSECUTIVE_FRAMES = 2
 BUFFER_SECONDS = 1.5
 
 # Thời lượng video tối đa cho phép xử lý (giây)
-MAX_VIDEO_DURATION = 120
+MAX_VIDEO_DURATION = 180    # 3 phút
 
 # Các label bị bỏ qua khi kiểm duyệt video (không tính là vi phạm)
 IGNORED_LABELS = [
