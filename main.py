@@ -2,6 +2,7 @@ from app.config import create_app
 from app.services.image_moderation.router import router as image_moderation_router
 from app.services.video_moderation.router import router as video_moderation_router
 from app.services.voice_conversion.router import router as voice_conversion_router
+from app.services.face_recognition.router import router as face_recognition_router
 
 app = create_app()
 
@@ -22,6 +23,12 @@ app.include_router(
     voice_conversion_router,
     prefix="/voice-conversion",
     tags=["Voice Conversion"],
+)
+
+app.include_router(
+    face_recognition_router,
+    prefix="/face-recognition",
+    tags=["Face Recognition"],
 )
 
 

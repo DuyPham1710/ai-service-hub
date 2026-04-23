@@ -11,4 +11,18 @@ services:
       - .:/app
       # Ánh xạ thư mục models ra ngoài để Docker không phải tải lại model AI mỗi khi khởi động lại
       - ./models:/app/models
+      # Cache InsightFace models (tránh download ~300MB mỗi lần rebuild)
+      - ./models/insightface:/root/.insightface
+    depends_on:
+      - qdrant
     restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC API
+    volumes:
+      - ./qdrant_storage:/qdrant/storage
