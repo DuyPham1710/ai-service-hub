@@ -72,26 +72,28 @@ async def enroll_face(request: EnrollRequest):
     best_face = faces[0]
     new_embedding = best_face["embedding"]
 
-    # ===== AVATAR: so sánh face mới với face cũ =====
+    # ===== AVATAR: Kiểm tra Global Uniqueness =====
     if request.source == "avatar":
-        old_embedding = store.get_user_avatar_embedding(request.user_id)
+        # Search xem face mới này giống ai trong DB không
+        similar_faces = store.search_similar(embedding=new_embedding, threshold=0.4)
+        
+        # Kiểm tra xem có match nào thuộc về user KHÁC không
+        stolen_from = None
+        for match in similar_faces:
+            if match["user_id"] != request.user_id:
+                stolen_from = match
+                break
+                
+        if stolen_from is not None:
+            logger.warning(f"Spoofing detected: User {request.user_id} tried to use face of {stolen_from['user_id']}")
+            return {
+                "success": False,
+                "faces_detected": len(faces),
+                "message": f"Khuôn mặt này đã thuộc về người khác. Cập nhật ảnh thành công nhưng không đăng ký nhận diện.",
+                "similarity": stolen_from["confidence"],
+            }
 
-        if old_embedding is not None:
-            import numpy as np
-            old_vec = np.array(old_embedding)
-            new_vec = np.array(new_embedding)
-            similarity = float(np.dot(old_vec, new_vec) / (np.linalg.norm(old_vec) * np.linalg.norm(new_vec)))
-
-            logger.info(f"Avatar face comparison for user {request.user_id}: similarity = {similarity:.4f}")
-
-            if similarity < 0.4:
-                return {
-                    "success": False,
-                    "faces_detected": len(faces),
-                    "message": f"New face does not match existing face (similarity: {similarity:.4f}). Avatar updated but face not enrolled.",
-                    "similarity": round(similarity, 4),
-                }
-
+        # Nếu chưa ai sở hữu (hoặc chỉ match chính mình), cho phép replace
         # Xóa embedding avatar cũ
         store.delete_by_user_and_source(request.user_id, "avatar")
 
