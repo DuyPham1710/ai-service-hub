@@ -77,6 +77,34 @@ class FaceVectorStore:
         logger.info(f"Upserted face embedding for user '{user_id}' (source: {source}, point: {point_id})")
         return point_id
 
+    def upsert_registration_face(
+        self, embedding: list[float], user_id: str, pose: str
+    ) -> str:
+        """
+        Lưu 1 face registration embedding + pose metadata vào Qdrant.
+        Không cần image_url vì ảnh gốc không được lưu trữ.
+
+        Returns: point_id (uuid)
+        """
+        point_id = str(uuid.uuid4())
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=[
+                models.PointStruct(
+                    id=point_id,
+                    vector=embedding,
+                    payload={
+                        "user_id": user_id,
+                        "source": "registration",
+                        "pose": pose,  # "center", "up", "down", "left", "right"
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+            ],
+        )
+        logger.info(f"Upserted registration face for user '{user_id}' (pose: {pose}, point: {point_id})")
+        return point_id
+
     def search_similar(
         self,
         embedding: list[float],
@@ -130,6 +158,64 @@ class FaceVectorStore:
         )
 
         points = results[0]  # scroll returns (points, next_offset)
+        if len(points) == 0:
+            return None
+
+        return points[0].vector
+
+    def get_user_registration_embedding(self, user_id: str) -> list[float] | None:
+        """
+        Lấy embedding registration (ground truth) của 1 user.
+        Ưu tiên lấy pose "center" vì là góc mặt chính diện, chính xác nhất.
+        Trả về vector 512-dim hoặc None nếu chưa register.
+        """
+        # Thử lấy center pose trước
+        results = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="user_id",
+                        match=models.MatchValue(value=user_id),
+                    ),
+                    models.FieldCondition(
+                        key="source",
+                        match=models.MatchValue(value="registration"),
+                    ),
+                    models.FieldCondition(
+                        key="pose",
+                        match=models.MatchValue(value="center"),
+                    ),
+                ]
+            ),
+            with_vectors=True,
+            limit=1,
+        )
+
+        points = results[0]
+        if len(points) > 0:
+            return points[0].vector
+
+        # Fallback: lấy bất kỳ registration embedding nào
+        results = self.client.scroll(
+            collection_name=self.collection_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="user_id",
+                        match=models.MatchValue(value=user_id),
+                    ),
+                    models.FieldCondition(
+                        key="source",
+                        match=models.MatchValue(value="registration"),
+                    ),
+                ]
+            ),
+            with_vectors=True,
+            limit=1,
+        )
+
+        points = results[0]
         if len(points) == 0:
             return None
 

@@ -31,9 +31,9 @@ class FaceDetector:
         self.app.prepare(ctx_id=0, det_size=FACE_DET_SIZE)
         logger.info("InsightFace model loaded successfully")
 
-    def detect_faces_from_url(self, image_url: str) -> list[dict]:
+    def _process_faces(self, img_rgb: np.ndarray) -> list[dict]:
         """
-        Download ảnh từ URL → detect faces → extract embeddings.
+        Shared logic: nhận ảnh RGB numpy array → detect faces → extract embeddings.
 
         Returns:
             list of {
@@ -42,16 +42,8 @@ class FaceDetector:
                 "confidence": float
             }
         """
-        try:
-            response = requests.get(image_url, timeout=30)  # Download ảnh từ Cloudinary
-            response.raise_for_status() 
-            img = np.array(Image.open(BytesIO(response.content)).convert("RGB"))
-        except Exception as e:
-            logger.error(f"Failed to download image from {image_url}: {e}")
-            return []
-
         # InsightFace expects BGR format (OpenCV convention)
-        img_bgr = img[:, :, ::-1]
+        img_bgr = img_rgb[:, :, ::-1]
 
         faces = self.app.get(img_bgr)
 
@@ -68,3 +60,32 @@ class FaceDetector:
 
         logger.info(f"Detected {len(results)} face(s) in image")
         return results
+
+    def detect_faces_from_url(self, image_url: str) -> list[dict]:
+        """
+        Download ảnh từ URL → detect faces → extract embeddings.
+        """
+        try:
+            response = requests.get(image_url, timeout=30)  # Download ảnh từ Cloudinary
+            response.raise_for_status() 
+            img = np.array(Image.open(BytesIO(response.content)).convert("RGB"))
+        except Exception as e:
+            logger.error(f"Failed to download image from {image_url}: {e}")
+            return []
+
+        return self._process_faces(img)
+
+    def detect_faces_from_base64(self, base64_str: str) -> list[dict]:
+        """
+        Decode ảnh base64 → detect faces → extract embeddings.
+        Dùng cho face registration flow (ảnh chụp trực tiếp từ camera, không qua Cloudinary).
+        """
+        try:
+            import base64
+            img_bytes = base64.b64decode(base64_str)
+            img = np.array(Image.open(BytesIO(img_bytes)).convert("RGB"))
+        except Exception as e:
+            logger.error(f"Failed to decode base64 image: {e}")
+            return []
+
+        return self._process_faces(img)
