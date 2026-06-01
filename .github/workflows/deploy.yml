@@ -1,0 +1,40 @@
+name: Deploy Python AI Service to AWS EC2
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    name: Deploy FastAPI AI Service
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 40m
+          script: |
+            set -e
+
+            echo "Go to AI service directory"
+            cd ${{ secrets.EC2_APP_DIR }}
+
+            echo "Pull latest code"
+            git pull origin develop
+
+            echo "Create persistent folders"
+            mkdir -p models models/insightface qdrant_storage
+
+            echo "Build and restart Python AI service"
+            docker compose up -d --build
+
+            echo "Clean unused Docker images"
+            docker image prune -f
+
+            echo "Show containers"
+            docker compose ps
