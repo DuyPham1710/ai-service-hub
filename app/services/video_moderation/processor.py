@@ -29,19 +29,27 @@ def blur_segments(video_path: str, segments: list[dict]) -> str:
     output_path = os.path.join(TEMP_DIR, output_filename)
 
     # Xây dựng filter_complex cho FFmpeg
-    # Mỗi đoạn vi phạm sẽ được áp dụng boxblur mạnh
-    filter_parts = []
+    # Kết hợp boxblur cực mạnh (cả luma + chroma) + phủ lớp đen mờ
+    blur_parts = []
+    overlay_parts = []
     for i, seg in enumerate(segments):
         start = seg["start"]
         end = seg["end"]
-        # enable='between(t,start,end)' chỉ kích hoạt blur trong khoảng thời gian
-        # luma_radius càng to thì ảnh càng mờ
-        filter_parts.append(
-            f"boxblur=luma_radius=40:luma_power=3:enable='between(t,{start},{end})'"
+        # boxblur mạnh: radius=80 cho cả luma và chroma, power=5 (lặp 5 lần)
+        blur_parts.append(
+            f"boxblur=luma_radius=80:luma_power=5"
+            f":chroma_radius=80:chroma_power=5"
+            f":enable='between(t,{start},{end})'"
+        )
+        # Phủ lớp đen mờ (opacity 70%) lên trên vùng blur để che kín
+        overlay_parts.append(
+            f"drawbox=x=0:y=0:w=iw:h=ih:color=black@0.7:t=fill"
+            f":enable='between(t,{start},{end})'"
         )
 
-    # Nối tất cả filter lại bằng dấu phẩy
-    filter_chain = ",".join(filter_parts)
+    # Nối tất cả filter: blur trước → overlay đen sau
+    all_filters = blur_parts + overlay_parts
+    filter_chain = ",".join(all_filters)
 
     # Lệnh FFmpeg
     cmd = [

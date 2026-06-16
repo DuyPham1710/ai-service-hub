@@ -83,7 +83,29 @@ async def check_video(file: UploadFile = File(...)):
                 "violation_ratio": violation_ratio
             }
 
-        # Có vi phạm một phần (< 90%) → tiến hành blur các đoạn đó
+        # Kiểm tra số đoạn chứa nội dung khiêu dâm/đồi trụy
+        # Nếu > 2 đoạn → video có quá nhiều cảnh nhạy cảm rải rác → chặn luôn
+        nsfw_categories = {"nội dung khiêu dâm", "nội dung đồi trụy"}
+        nsfw_segment_count = sum(
+            1 for seg in analysis["violation_segments"]
+            if any(cat in nsfw_categories for cat in seg.get("categories", []))
+        )
+
+        if nsfw_segment_count >= 2:
+            logger.warning(
+                f"Video {file.filename} có {nsfw_segment_count} đoạn khiêu dâm riêng biệt. Chặn lập tức!"
+            )
+            return {
+                "is_safe": False,
+                "duration": analysis["duration"],
+                "total_frames_analyzed": analysis["total_frames_analyzed"],
+                "violation_segments": analysis["violation_segments"],
+                "has_blurred_video": False,
+                "block_completely": True,
+                "nsfw_segment_count": nsfw_segment_count,
+            }
+
+        # Có vi phạm một phần (< 90% và < 2 đoạn khiêu dâm) → tiến hành blur các đoạn đó
         logger.info(
             f"Video vi phạm {violation_ratio:.1%}! Tìm thấy {len(analysis['violation_segments'])} đoạn. "
             f"Đang tiến hành blur..."

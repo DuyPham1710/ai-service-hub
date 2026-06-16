@@ -8,7 +8,7 @@ import torch
 from PIL import Image
 
 from ..image_moderation.model import clip_model, clip_processor
-from ..image_moderation.config import ALL_LABELS, UNSAFE_LABELS, LABEL_VI
+from ..image_moderation.config import ALL_LABELS, UNSAFE_LABELS, SAFE_LABELS, LABEL_VI
 from ..image_moderation.classifier import classify_image
 from .config import FRAME_INTERVAL, VIDEO_CLIP_THRESHOLD, MAX_VIDEO_DURATION, MIN_CONSECUTIVE_FRAMES, BUFFER_SECONDS, IGNORED_LABELS
 
@@ -108,6 +108,9 @@ def analyze_video(video_path: str) -> dict:
     for frame_data in frames:
         scores = classify_image(frame_data["image"])
 
+        # Tính tổng xác suất an toàn để so sánh với từng nhãn vi phạm
+        total_safe_score = sum(scores.get(label, 0) for label in SAFE_LABELS)
+
         violations = []
         for label in UNSAFE_LABELS:
             # Bỏ qua các label không muốn detect cho video
@@ -115,7 +118,8 @@ def analyze_video(video_path: str) -> dict:
                 continue
                 
             score = scores.get(label, 0)
-            if score >= VIDEO_CLIP_THRESHOLD:
+            # Chỉ vi phạm khi score >= ngưỡng VÀ score cao hơn tổng điểm an toàn
+            if score >= VIDEO_CLIP_THRESHOLD and score > total_safe_score:
                 violations.append({
                     "category": label,
                     "category_vi": LABEL_VI.get(label, label),
