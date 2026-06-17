@@ -108,7 +108,7 @@ async def register_face(request: RegisterFaceRequest):
 
             # Giảm ngưỡng cho consistency check vì các góc mặt khác nhau (trái/phải/lên/xuống)
             # sẽ có độ tương đồng thấp hơn so với 2 ảnh chụp thẳng
-            if similarity < 0.25:
+            if similarity < 0.15:
                 logger.warning(
                     f"Consistency check failed for user {request.user_id}: "
                     f"{embeddings[i]['pose']} vs {embeddings[j]['pose']} = {similarity:.4f}"
