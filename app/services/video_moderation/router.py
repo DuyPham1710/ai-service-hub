@@ -67,11 +67,11 @@ async def check_video(file: UploadFile = File(...)):
                 "has_blurred_video": False,
             }
 
-        # Tính tổng thời gian vi phạm xem có vượt quá 90% thời lượng video không
+        # Tính tổng thời gian vi phạm xem có vượt quá 70% thời lượng video không
         total_violation_duration = sum([seg["end"] - seg["start"] for seg in analysis["violation_segments"]])
         violation_ratio = total_violation_duration / analysis["duration"] if analysis["duration"] > 0 else 0
 
-        if violation_ratio > 0.90:
+        if violation_ratio > 0.70:
             logger.warning(f"Video {file.filename} vi phạm {violation_ratio:.1%} nội dung. Chặn lập tức!")
             return {
                 "is_safe": False,
@@ -105,7 +105,7 @@ async def check_video(file: UploadFile = File(...)):
                 "nsfw_segment_count": nsfw_segment_count,
             }
 
-        # Có vi phạm một phần (< 90% và < 2 đoạn khiêu dâm) → tiến hành blur các đoạn đó
+        # Có vi phạm một phần (< 70% và < 2 đoạn khiêu dâm) → tiến hành blur các đoạn đó
         logger.info(
             f"Video vi phạm {violation_ratio:.1%}! Tìm thấy {len(analysis['violation_segments'])} đoạn. "
             f"Đang tiến hành blur..."
