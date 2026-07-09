@@ -208,20 +208,20 @@ def _merge_violation_segments(frame_results: list[dict], video_duration: float) 
         raw_segments.append(current_segment)
 
     # Bước 2: Lọc bỏ các đoạn có quá ít frame (nhiễu / false positive)
-    filtered_segments = []
-    for seg in raw_segments:
-        if seg["frame_count"] >= MIN_CONSECUTIVE_FRAMES:
-            del seg["frame_count"]
-            filtered_segments.append(seg)
-        else:
-            logger.info(
-                f"Bỏ qua đoạn {seg['start']}s-{seg['end']}s "
-                f"(chỉ có {seg['frame_count']} frame → nhiễu)"
-            )
+    # filtered_segments = []
+    # for seg in raw_segments:
+    #     if seg["frame_count"] >= MIN_CONSECUTIVE_FRAMES:
+    #         del seg["frame_count"]
+    #         filtered_segments.append(seg)
+    #     else:
+    #         logger.info(
+    #             f"Bỏ qua đoạn {seg['start']}s-{seg['end']}s "
+    #             f"(chỉ có {seg['frame_count']} frame → nhiễu)"
+    #         )
 
     # Bước 3: Thêm BUFFER trước/sau mỗi đoạn vi phạm để blur phủ sớm hơn
     buffered_segments = []
-    for seg in filtered_segments:
+    for seg in raw_segments:
         buffered_segments.append({
             "start": max(0, seg["start"] - BUFFER_SECONDS),
             "end": min(video_duration, seg["end"] + BUFFER_SECONDS),
