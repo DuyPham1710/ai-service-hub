@@ -105,13 +105,17 @@ async def check_video(file: UploadFile = File(...)):
                 "nsfw_segment_count": nsfw_segment_count,
             }
 
-        # Có vi phạm một phần (< 90% và < 2 đoạn khiêu dâm) → tiến hành blur các đoạn đó
+        # Có vi phạm một phần (< 90% và < 2 đoạn khiêu dâm) → tiến hành blur VÙNG vi phạm
         logger.info(
             f"Video vi phạm {violation_ratio:.1%}! Tìm thấy {len(analysis['violation_segments'])} đoạn. "
-            f"Đang tiến hành blur..."
+            f"Đang tiến hành blur vùng vi phạm (region-specific)..."
         )
 
-        blurred_path = blur_segments(temp_input, analysis["violation_segments"])
+        blurred_path = blur_segments(
+            temp_input,
+            analysis["violation_segments"],
+            frame_regions=analysis.get("frame_regions"),
+        )
 
         # Trả về video đã blur dưới dạng file response
         return FileResponse(

@@ -1,6 +1,9 @@
 """
 Video Analyzer: Trích xuất frame và phân loại bằng CLIP model
 Tái sử dụng CLIP model từ image_moderation
+
+V2: Thêm region detection (GradCAM) để xác định VÙNG vi phạm trong frame,
+cho phép blur chính xác vùng vi phạm thay vì blur toàn frame.
 """
 import logging
 import cv2
@@ -11,6 +14,7 @@ from ..image_moderation.model import clip_model, clip_processor
 from ..image_moderation.config import ALL_LABELS, UNSAFE_LABELS, SAFE_LABELS, LABEL_VI
 from ..image_moderation.classifier import classify_image
 from .config import FRAME_INTERVAL, VIDEO_CLIP_THRESHOLD, MAX_VIDEO_DURATION, MIN_CONSECUTIVE_FRAMES, BUFFER_SECONDS, IGNORED_LABELS
+from .region_detector import get_violation_regions
 
 logger = logging.getLogger("ai-service-hub")
 
@@ -126,10 +130,33 @@ def analyze_video(video_path: str) -> dict:
                     "confidence": score,
                 })
 
+        # Nếu frame vi phạm → detect vùng vi phạm bằng GradCAM
+        regions = []
+        if violations:
+            for v in violations:
+                frame_regions = get_violation_regions(
+                    frame_data["image"],
+                    v["category"],
+                )
+                regions.extend(frame_regions)
+
+            # Nếu GradCAM không detect được vùng nào → fallback blur toàn frame
+            if not regions:
+                img_w, img_h = frame_data["image"].size
+                regions = [{"x": 0, "y": 0, "w": img_w, "h": img_h}]
+                logger.debug(
+                    f"Frame {frame_data['timestamp']}s: GradCAM fallback → blur toàn frame"
+                )
+            else:
+                logger.debug(
+                    f"Frame {frame_data['timestamp']}s: GradCAM detected {len(regions)} region(s)"
+                )
+
         frame_results.append({
             "timestamp": frame_data["timestamp"],
             "is_safe": len(violations) == 0,
             "violations": violations,
+            "regions": regions,
             "scores": scores,
         })
 
@@ -149,11 +176,27 @@ def analyze_video(video_path: str) -> dict:
         "total_frames_analyzed": len(frame_results),
         "is_safe": is_safe,
         "violation_segments": violation_segments,
+        "frame_regions": _build_frame_regions_map(frame_results),
         "frame_results": [
-            {k: v for k, v in fr.items() if k != "scores"}
+            {k: v for k, v in fr.items() if k not in ("scores", "regions")}
             for fr in frame_results
         ],
     }
+
+
+def _build_frame_regions_map(frame_results: list[dict]) -> dict:
+    """
+    Tạo map: timestamp → list[bounding_boxes] cho tất cả frame vi phạm.
+    Processor sẽ dùng map này để biết blur vùng nào tại mỗi thời điểm.
+
+    Returns:
+        {"1.0": [{"x": 10, "y": 20, "w": 100, "h": 80}], ...}
+    """
+    regions_map = {}
+    for fr in frame_results:
+        if not fr["is_safe"] and fr.get("regions"):
+            regions_map[str(fr["timestamp"])] = fr["regions"]
+    return regions_map
 
 
 def _merge_violation_segments(frame_results: list[dict], video_duration: float) -> list[dict]:

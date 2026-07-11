@@ -39,3 +39,18 @@ import os
 TEMP_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "temp_videos")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
+# === CẤU HÌNH REGION-SPECIFIC BLUR (GradCAM + OpenCV) ===
+
+# Ngưỡng attention GradCAM để xác định vùng vi phạm
+# 0.4 = chỉ lấy vùng có activation >= 40% max → giảm false positive
+GRADCAM_THRESHOLD = 0.4
+
+# Padding thêm xung quanh bounding box (tỷ lệ so với kích thước bbox)
+# 0.2 = thêm 20% mỗi cạnh để đảm bảo phủ hết vùng vi phạm
+BBOX_PADDING_RATIO = 0.2
+
+# Kích thước kernel Gaussian blur (phải lẻ, càng lớn càng mờ)
+BLUR_KERNEL_SIZE = 99
+
+# Opacity lớp overlay đen phủ lên vùng blur (0.0 = trong suốt, 1.0 = đen hoàn toàn)
+BLUR_OVERLAY_OPACITY = 0.5
