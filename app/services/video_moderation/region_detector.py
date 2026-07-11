@@ -184,7 +184,7 @@ def _heatmap_to_bboxes(
     combined_mask = cv2.bitwise_or(binary_mask, otsu_mask)
 
     # Morphological operations: dilate mạnh hơn để nối các mảng của cùng 1 object (ví dụ: tay và súng)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (50, 50))
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (80, 80)) # Đã tăng từ 50 lên 80 để vùng blur to ra
     combined_mask = cv2.dilate(combined_mask, kernel, iterations=1)
 
     # Tìm contours
