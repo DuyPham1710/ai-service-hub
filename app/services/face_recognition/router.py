@@ -100,24 +100,24 @@ async def register_face(request: RegisterFaceRequest):
     logger.info(f"Registration: detected faces in all {len(embeddings)} images for user {request.user_id}")
 
     # ===== Bước 2: Consistency check — tất cả face phải cùng 1 người =====
-    for i in range(len(embeddings)):
-        for j in range(i + 1, len(embeddings)):
-            vec_a = np.array(embeddings[i]["embedding"])
-            vec_b = np.array(embeddings[j]["embedding"])
-            similarity = float(np.dot(vec_a, vec_b) / (np.linalg.norm(vec_a) * np.linalg.norm(vec_b)))
+    # for i in range(len(embeddings)):
+    #     for j in range(i + 1, len(embeddings)):
+    #         vec_a = np.array(embeddings[i]["embedding"])
+    #         vec_b = np.array(embeddings[j]["embedding"])
+    #         similarity = float(np.dot(vec_a, vec_b) / (np.linalg.norm(vec_a) * np.linalg.norm(vec_b)))
 
-            # Giảm ngưỡng cho consistency check vì các góc mặt khác nhau (trái/phải/lên/xuống)
-            # sẽ có độ tương đồng thấp hơn so với 2 ảnh chụp thẳng
-            if similarity < 0.15:
-                logger.warning(
-                    f"Consistency check failed for user {request.user_id}: "
-                    f"{embeddings[i]['pose']} vs {embeddings[j]['pose']} = {similarity:.4f}"
-                )
-                return {
-                    "success": False,
-                    "message": f"Các ảnh không khớp nhau (ảnh {embeddings[i]['pose']} và {embeddings[j]['pose']}). Vui lòng quét lại.",
-                    "similarity": round(similarity, 4),
-                }
+    #         # Giảm ngưỡng cho consistency check vì các góc mặt khác nhau (trái/phải/lên/xuống)
+    #         # sẽ có độ tương đồng thấp hơn so với 2 ảnh chụp thẳng
+    #         if similarity < 0.15:
+    #             logger.warning(
+    #                 f"Consistency check failed for user {request.user_id}: "
+    #                 f"{embeddings[i]['pose']} vs {embeddings[j]['pose']} = {similarity:.4f}"
+    #             )
+    #             return {
+    #                 "success": False,
+    #                 "message": f"Các ảnh không khớp nhau (ảnh {embeddings[i]['pose']} và {embeddings[j]['pose']}). Vui lòng quét lại.",
+    #                 "similarity": round(similarity, 4),
+    #             }
 
     # ===== Bước 3: Global uniqueness — face chưa thuộc user khác =====
     for emb in embeddings:
