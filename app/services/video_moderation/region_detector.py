@@ -9,7 +9,6 @@ Kỹ thuật: GradCAM (Gradient-weighted Class Activation Mapping)
 - Lấy gradient của similarity score đối với feature map cuối cùng của Vision Transformer
 - Gradient * activation = attention map → cho biết vùng nào "quan trọng" nhất cho label đó
 """
-from _typeshed import importlib
 import logging
 from typing import Optional
 
