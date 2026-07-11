@@ -141,8 +141,8 @@ def _get_regions_for_timestamp(
     Fallback: nếu không có frame_regions → blur toàn frame.
     """
     if not frame_regions:
-        # Fallback: blur toàn frame
-        return [{"x": 0, "y": 0, "w": frame_width, "h": frame_height}]
+        # Fallback: không làm mờ thay vì bôi đen toàn màn hình
+        return []
 
     # Tìm analyzed frame gần nhất (làm tròn về bội số FRAME_INTERVAL)
     nearest_ts = round(round(timestamp / FRAME_INTERVAL) * FRAME_INTERVAL, 2)
@@ -158,23 +158,20 @@ def _get_regions_for_timestamp(
         if nearby_key in frame_regions:
             return frame_regions[nearby_key]
 
-    # Không tìm thấy → fallback blur toàn frame
-    return [{"x": 0, "y": 0, "w": frame_width, "h": frame_height}]
+    # Không tìm thấy → bỏ qua (trả về rỗng, thay vì bôi đen toàn bộ)
+    return []
 
 
 def _blur_regions(frame: np.ndarray, regions: list[dict]) -> np.ndarray:
     """
-    Áp dụng Gaussian blur lên các vùng cụ thể trong frame.
-
-    Với mỗi region:
-    1. Cắt vùng ra
-    2. Apply Gaussian blur mạnh
-    3. Phủ overlay đen mờ (opacity)
-    4. Dán vùng đã blur lại vào frame
+    Áp dụng hiệu ứng Pixelate (Mosaic) lên các vùng cụ thể trong frame.
+    Cách làm giống video Nhật Bản: thu nhỏ vùng chọn sau đó phóng to lên bằng INTER_NEAREST.
     """
     result = frame.copy()
     h_frame, w_frame = frame.shape[:2]
-    kernel = (BLUR_KERNEL_SIZE, BLUR_KERNEL_SIZE)
+    
+    # Càng lớn thì các khối vuông (pixel) càng to
+    pixel_size = 20
 
     for region in regions:
         x = max(0, region["x"])
@@ -182,26 +179,20 @@ def _blur_regions(frame: np.ndarray, regions: list[dict]) -> np.ndarray:
         w = min(region["w"], w_frame - x)
         h = min(region["h"], h_frame - y)
 
-        if w <= 0 or h <= 0:
+        # Bỏ qua nếu vùng lỗi hoặc fallback toàn frame (khi x=0, y=0, w=w_frame, h=h_frame - ta skip để không bôi đen toàn bộ)
+        if w <= 0 or h <= 0 or (w == w_frame and h == h_frame):
             continue
 
-        # Cắt vùng cần blur
+        # Cắt vùng cần làm mosaic
         roi = result[y:y+h, x:x+w]
 
-        # Apply Gaussian blur mạnh
-        blurred_roi = cv2.GaussianBlur(roi, kernel, 0)
+        # Áp dụng Pixelate: Thu nhỏ
+        small = cv2.resize(roi, (w // pixel_size, max(1, h // pixel_size)), interpolation=cv2.INTER_LINEAR)
+        # Phóng to lại bằng Nearest Neighbor để tạo khối vuông
+        pixelated_roi = cv2.resize(small, (w, h), interpolation=cv2.INTER_NEAREST)
 
-        # Phủ overlay đen mờ lên vùng đã blur
-        if BLUR_OVERLAY_OPACITY > 0:
-            overlay = np.zeros_like(blurred_roi)
-            blurred_roi = cv2.addWeighted(
-                blurred_roi, 1 - BLUR_OVERLAY_OPACITY,
-                overlay, BLUR_OVERLAY_OPACITY,
-                0,
-            )
-
-        # Dán vùng đã blur vào frame
-        result[y:y+h, x:x+w] = blurred_roi
+        # Dán vùng đã mosaic vào frame
+        result[y:y+h, x:x+w] = pixelated_roi
 
     return result
 

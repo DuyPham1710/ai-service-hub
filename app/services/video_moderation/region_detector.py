@@ -171,31 +171,41 @@ def _heatmap_to_bboxes(
         interpolation=cv2.INTER_LINEAR,
     )
 
-    # Threshold: chỉ giữ vùng có attention >= GRADCAM_THRESHOLD
+    # Threshold: lấy các vùng có attention >= GRADCAM_THRESHOLD
+    # Hạ ngưỡng nhẹ nếu cần để bắt được nhiều nét hơn, nhưng vẫn dựa trên config
     binary_mask = (heatmap_resized >= GRADCAM_THRESHOLD).astype(np.uint8) * 255
 
-    # Morphological operations: dilate để nối các vùng gần nhau
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (30, 30))
-    binary_mask = cv2.dilate(binary_mask, kernel, iterations=1)
+    # Sử dụng Canny edge detection kết hợp với mask để làm vùng nhận diện bám sát hơn (tùy chọn)
+    # Nhưng cách ổn định nhất là dùng threshold Otsu trên vùng GradCAM đã lọc
+    heatmap_norm = (heatmap_resized * 255).astype(np.uint8)
+    _, otsu_mask = cv2.threshold(heatmap_norm, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Kết hợp cả 2 mask: lấy giao hoặc hợp tùy chiến lược, ở đây lấy hợp để không bị sót
+    combined_mask = cv2.bitwise_or(binary_mask, otsu_mask)
+
+    # Morphological operations: dilate mạnh hơn để nối các mảng của cùng 1 object (ví dụ: tay và súng)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (50, 50))
+    combined_mask = cv2.dilate(combined_mask, kernel, iterations=1)
 
     # Tìm contours
     contours, _ = cv2.findContours(
-        binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        combined_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )
 
     bboxes = []
-    min_area = img_w * img_h * 0.01  # Bỏ qua vùng nhỏ hơn 1% ảnh
+    min_area = img_w * img_h * 0.02  # Tăng diện tích tối thiểu lên 2% để lọc bỏ nhiễu lốm đốm
 
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
         area = w * h
 
         if area < min_area:
-            continue  # Bỏ qua vùng quá nhỏ (nhiễu)
+            continue  # Bỏ qua nhiễu nhỏ
 
-        # Thêm padding xung quanh bbox
-        pad_w = int(w * BBOX_PADDING_RATIO)
-        pad_h = int(h * BBOX_PADDING_RATIO)
+        # Thêm padding xung quanh bbox (tăng padding để chắc chắn che hết)
+        # Vì GradCAM chỉ là attention (thường tập trung vào tâm vật thể), padding lớn một chút sẽ che được toàn bộ
+        pad_w = int(w * (BBOX_PADDING_RATIO + 0.1)) # Tăng thêm 10% padding
+        pad_h = int(h * (BBOX_PADDING_RATIO + 0.1))
 
         x = max(0, x - pad_w)
         y = max(0, y - pad_h)

@@ -140,12 +140,11 @@ def analyze_video(video_path: str) -> dict:
                 )
                 regions.extend(frame_regions)
 
-            # Nếu GradCAM không detect được vùng nào → fallback blur toàn frame
+            # Nếu GradCAM không detect được vùng nào → bỏ qua thay vì fallback toàn frame
             if not regions:
-                img_w, img_h = frame_data["image"].size
-                regions = [{"x": 0, "y": 0, "w": img_w, "h": img_h}]
+                regions = []
                 logger.debug(
-                    f"Frame {frame_data['timestamp']}s: GradCAM fallback → blur toàn frame"
+                    f"Frame {frame_data['timestamp']}s: GradCAM fallback → không tìm thấy vùng, bỏ qua"
                 )
             else:
                 logger.debug(
@@ -251,20 +250,20 @@ def _merge_violation_segments(frame_results: list[dict], video_duration: float) 
         raw_segments.append(current_segment)
 
     # Bước 2: Lọc bỏ các đoạn có quá ít frame (nhiễu / false positive)
-    # filtered_segments = []
-    # for seg in raw_segments:
-    #     if seg["frame_count"] >= MIN_CONSECUTIVE_FRAMES:
-    #         del seg["frame_count"]
-    #         filtered_segments.append(seg)
-    #     else:
-    #         logger.info(
-    #             f"Bỏ qua đoạn {seg['start']}s-{seg['end']}s "
-    #             f"(chỉ có {seg['frame_count']} frame → nhiễu)"
-    #         )
+    filtered_segments = []
+    for seg in raw_segments:
+        if seg["frame_count"] >= MIN_CONSECUTIVE_FRAMES:
+            del seg["frame_count"]
+            filtered_segments.append(seg)
+        else:
+            logger.info(
+                f"Bỏ qua đoạn {seg['start']}s-{seg['end']}s "
+                f"(chỉ có {seg['frame_count']} frame → nhiễu)"
+            )
 
     # Bước 3: Thêm BUFFER trước/sau mỗi đoạn vi phạm để blur phủ sớm hơn
     buffered_segments = []
-    for seg in raw_segments:
+    for seg in filtered_segments:
         buffered_segments.append({
             "start": max(0, seg["start"] - BUFFER_SECONDS),
             "end": min(video_duration, seg["end"] + BUFFER_SECONDS),
