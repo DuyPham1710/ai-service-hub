@@ -205,6 +205,23 @@ async def enroll_face(request: EnrollRequest):
                 "similarity": stolen_from["confidence"],
             }
 
+        # ===== Kiểm tra Consistency với ảnh đã đăng ký (nếu có) =====
+        ref_embedding = store.get_user_registration_embedding(request.user_id)
+        if ref_embedding is not None:
+            ref_vec = np.array(ref_embedding)
+            avatar_vec = np.array(new_embedding)
+            similarity = float(np.dot(ref_vec, avatar_vec) / (np.linalg.norm(ref_vec) * np.linalg.norm(avatar_vec)))
+            
+            logger.info(f"Avatar verification for user {request.user_id} (vs registration): similarity = {similarity:.4f}")
+            
+            if similarity < 0.4:
+                return {
+                    "success": False,
+                    "faces_detected": len(faces),
+                    "message": f"Khuôn mặt trong avatar không khớp với khuôn mặt chính chủ đã đăng ký. Cập nhật ảnh thành công nhưng không lưu dữ liệu nhận diện.",
+                    "similarity": round(similarity, 4),
+                }
+
         # Nếu chưa ai sở hữu (hoặc chỉ match chính mình), cho phép replace
         # Xóa embedding avatar cũ
         store.delete_by_user_and_source(request.user_id, "avatar")
